@@ -5,11 +5,15 @@ Self-contained tampermonkey scripts
 ## 1. Save tweets: 
 💡 You have to install [Picseed](https://picseed.com/) frist.
 - When using a web browser to access `x.com`, hovering the mouse over a tweet will display a save button. Clicking the save button will invoke picseed's one-click save feature via URL scheme.
+
 ![addToPicseed](/img/SCR-20241219-kgiv.png)
+
 > https://github.com/AmintaCCCP/tampermonkey-script/blob/main/scripts/saveTweet.js
 
 ## 2. Save twitter video:
 💡 You have to install [Downie](https://software.charliemonroe.net/downie/) frist.
 - When using a web browser to access `x.com`, hovering the mouse over a tweet will display a save button. Clicking the save button will invoke Downie's one-click save feature via URL scheme.
+
 ![addToPicseed](/img/SCR-20241219-kirx.png)
+
 > https://github.com/AmintaCCCP/tampermonkey-script/blob/main/scripts/saveTwitterVide.js
