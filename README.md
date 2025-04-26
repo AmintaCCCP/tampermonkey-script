@@ -17,3 +17,8 @@ Self-contained tampermonkey scripts
 ![addToPicseed](/img/SCR-20241219-kirx.png)
 
 > https://github.com/AmintaCCCP/tampermonkey-script/blob/main/scripts/saveTwitterVide.js
+
+
+## 3. Viewing github repositories with DeepWiki:
+- When useing a web browser to access 'github.com/${username}/${repo}', click the "💡" icon at the bottom right to view the repository in a new tab using [DeepWiki](https://deepwiki.com).
+> https://github.com/AmintaCCCP/tampermonkey-script/blob/main/scripts/DeepWiki.js
