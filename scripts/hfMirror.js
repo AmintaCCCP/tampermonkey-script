@@ -27,7 +27,7 @@
             MirrorButton.style.bottom = '20px';
             MirrorButton.style.right = '20px';
             MirrorButton.style.zIndex = '9999';
-            MirrorButton.href = `https://https://hf-mirror.com/${username}/${repo}`;
+            MirrorButton.href = `https://hf-mirror.com/${username}/${repo}`;
             MirrorButton.target = '_blank';
             MirrorButton.title = 'Open Mirror site on Huggingface';
 
