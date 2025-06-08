@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         X.com Video Downie Downloader
-// @namespace    https://github.com/AmintaCCCP/tampermonkey-script
+// @namespace    http://tampermonkey.net/
 // @version      0.2
 // @description  在X.com的视频上添加Downie下载按钮
-// @author       AmintaCCCP
+// @author       Your name
 // @match        https://twitter.com/*
 // @match        https://x.com/*
 // @grant        none
@@ -35,8 +35,15 @@
     `;
     document.head.appendChild(style);
 
+    // 转换URL从twitter.com到x.com
+    function convertTwitterToX(url) {
+        return url.replace('twitter.com', 'x.com');
+    }
+
     // 打开Downie下载
     function openInDownie(url) {
+        // 转换URL
+        url = convertTwitterToX(url);
         let action_url = "downie://XUOpenLink?url=" + encodeURI(url);
         action_url = action_url.replaceAll("&", "%26");
         action_url = action_url.replaceAll("#", "%23");
