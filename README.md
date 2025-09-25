@@ -27,3 +27,9 @@ Self-contained tampermonkey scripts
 - When useing web browser to access `huggingface.co/${username}/${repo}`,click the "🪩" icon at the bottom right to view the repository in a new tab using [HF-Mirro](https://hf-mirror.com/), avoid consuming too much 🪜 data when downloading the model and be able to accelerate the download.
 
 > https://github.com/AmintaCCCP/tampermonkey-script/blob/main/scripts/hfMirror.js
+
+## 5. ImageFX AI Prompt Optimizer
+
+When using Google ImageFX for drawing, add an AI optimization button below the input box. It allows configuring the AI model to optimize prompts and input.
+
+> https://github.com/AmintaCCCP/tampermonkey-script/blob/main/scripts/imageFXPromptOptimizer.js
