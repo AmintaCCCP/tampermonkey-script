@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImageFX AI Prompt Optimizer
-// @namespace    https://github.com/AmintaCCCP
-// @version      1.2
+// @namespace    https://github.com/AmintaCCCP/tampermonkey-script
+// @version      1.6
 // @description  为ImageFX添加AI优化功能
 // @author       AmintaCCCP
 // @match        https://labs.google/fx/tools/image-fx*
@@ -61,6 +61,20 @@
         GM_setValue('promptHistory', JSON.stringify(history));
     }
 
+    // 删除历史记录项
+    function deleteHistoryItem(id) {
+        let history = getHistory();
+        history = history.filter(item => item.id !== id);
+        GM_setValue('promptHistory', JSON.stringify(history));
+    }
+
+    // 批量删除历史记录
+    function deleteSelectedHistory(selectedIds) {
+        let history = getHistory();
+        history = history.filter(item => !selectedIds.includes(item.id));
+        GM_setValue('promptHistory', JSON.stringify(history));
+    }
+
     // 调用AI优化
     async function optimizeWithAI(text) {
         const config = getConfig();
@@ -100,43 +114,38 @@
     function createStyles() {
         const style = document.createElement('style');
         style.textContent = `
+            .ai-button-container {
+                display: inline-flex;
+                align-items: center;
+                justify-content: flex-start;
+                margin-right: 12px;
+            }
             .ai-optimizer-btn {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                padding: 8px 12px;
-                background: #4285f4;
-                color: white;
-                border: none;
-                border-radius: 20px;
+                padding: 0.25rem;
+                background: transparent;
+                color: rgba(255, 255, 255, 0.7);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                border-radius: 48px;
                 cursor: pointer;
-                margin-right: 8px;
-                font-size: 14px;
-                font-weight: 500;
+                font-size: 16px;
                 transition: all 0.2s ease;
-                min-height: 36px;
-                white-space: nowrap;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                height: 2.625rem;
+                width: 2.625rem;
+                min-width: 2.625rem;
             }
             .ai-optimizer-btn:hover {
-                background: #3367d6;
-                transform: translateY(-1px);
-                box-shadow: 0 2px 6px rgba(0,0,0,0.16);
+                background: rgba(255, 255, 255, 0.1);
+                border-color: rgba(255, 255, 255, 0.15);
+                color: white;
+                transform: scale(1.05);
             }
             .ai-optimizer-btn:disabled {
-                background: #ccc;
+                opacity: 0.5;
                 cursor: not-allowed;
                 transform: none;
-                box-shadow: none;
-            }
-            .ai-optimizer-btn svg {
-                margin-right: 4px;
-            }
-            .ai-button-container {
-                display: inline-flex;
-                align-items: center;
-                margin-right: 12px;
-                gap: 8px;
             }
             .ai-modal {
                 position: fixed;
@@ -234,6 +243,23 @@
             .ai-button.copy:hover:not(:disabled) {
                 background: #218838;
             }
+            .ai-button.copy-original {
+                background: #6c757d;
+                color: white;
+            }
+            .ai-button.copy-original:hover:not(:disabled) {
+                background: #5a6268;
+            }
+            .ai-button.delete {
+                background: #dc3545;
+                color: white;
+                padding: 6px 12px;
+                font-size: 12px;
+                margin-left: 4px;
+            }
+            .ai-button.delete:hover:not(:disabled) {
+                background: #c82333;
+            }
             .ai-result {
                 background: #f8f9fa;
                 border: 1px solid #e0e0e0;
@@ -305,11 +331,29 @@
                 font-size: 14px;
                 box-sizing: border-box;
             }
+            .ai-history-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 16px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid #eee;
+            }
+            .ai-history-controls {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
             .ai-history-item {
                 border: 1px solid #e0e0e0;
                 border-radius: 8px;
                 padding: 12px;
                 margin-bottom: 12px;
+                position: relative;
+            }
+            .ai-history-checkbox {
+                margin-right: 8px;
+                cursor: pointer;
             }
             .ai-history-meta {
                 font-size: 12px;
@@ -332,6 +376,11 @@
             .ai-history-optimized {
                 border-left: 3px solid #4caf50;
             }
+            .ai-history-actions {
+                display: flex;
+                align-items: center;
+                margin-top: 8px;
+            }
             .ai-copy-btn {
                 background: #f0f0f0;
                 border: 1px solid #ddd;
@@ -343,6 +392,24 @@
             }
             .ai-copy-btn:hover {
                 background: #e0e0e0;
+            }
+            .ai-delete-btn {
+                background: #dc3545;
+                color: white;
+                border: none;
+                padding: 4px 8px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                margin-left: 4px;
+            }
+            .ai-delete-btn:hover {
+                background: #c82333;
+            }
+            .ai-history-empty {
+                text-align: center;
+                color: #666;
+                padding: 40px 20px;
             }
             .ai-toast {
                 position: fixed;
@@ -356,6 +423,9 @@
                 z-index: 10001;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.15);
                 animation: slideInOut 3s ease-in-out;
+            }
+            .ai-toast.error {
+                background: #dc3545;
             }
             @keyframes slideInOut {
                 0% { transform: translateX(100%); opacity: 0; }
@@ -371,32 +441,8 @@
     function createOptimizerButton() {
         const btn = document.createElement('button');
         btn.className = 'ai-optimizer-btn';
-        btn.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 20h9"/>
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
-            AI优化
-        `;
+        btn.innerHTML = '✨';
         btn.title = 'AI优化提示词';
-        return btn;
-    }
-
-    // 创建设置按钮
-    function createSettingsButton() {
-        const btn = document.createElement('button');
-        btn.className = 'ai-optimizer-btn';
-        btn.style.background = '#6c757d';
-        btn.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="m12 1 1.68 3.36L17 6.64l.32 3.68L21 12l-3.68 1.68L15.36 17l-3.68.32L10 21l-1.68-3.68L5 15.36l-.32-3.68L1 10l3.68-1.68L6.64 5l3.68-.32L12 1z"/>
-            </svg>
-            设置
-        `;
-        btn.title = '设置';
-        btn.addEventListener('mouseover', () => btn.style.background = '#5a6268');
-        btn.addEventListener('mouseout', () => btn.style.background = '#6c757d');
         return btn;
     }
 
@@ -417,9 +463,9 @@
     }
 
     // 显示提示消息
-    function showToast(message) {
+    function showToast(message, isError = false) {
         const toast = document.createElement('div');
-        toast.className = 'ai-toast';
+        toast.className = `ai-toast ${isError ? 'error' : ''}`;
         toast.textContent = message;
         document.body.appendChild(toast);
         setTimeout(() => {
@@ -455,7 +501,7 @@
                     <div class="ai-result" id="result" style="display: none;"></div>
                     <div>
                         <button class="ai-button" id="optimize-btn">AI优化</button>
-                        <button class="ai-button copy" id="copy-original-btn" style="display: none;">复制原文</button>
+                        <button class="ai-button copy-original" id="copy-original-btn" style="display: none;">复制原文</button>
                         <button class="ai-button copy" id="copy-optimized-btn" style="display: none;">复制优化后</button>
                         <button class="ai-button secondary" id="re-optimize-btn" style="display: none;">重新优化</button>
                     </div>
@@ -484,6 +530,14 @@
                 </div>
 
                 <div class="ai-tab-content" id="history-tab">
+                    <div class="ai-history-header">
+                        <div>历史记录</div>
+                        <div class="ai-history-controls">
+                            <label><input type="checkbox" id="select-all"> 全选</label>
+                            <button class="ai-button delete" id="delete-selected-btn" style="display: none;">批量删除</button>
+                            <button class="ai-button delete" id="clear-all-btn">清空所有</button>
+                        </div>
+                    </div>
                     <div id="history-list"></div>
                 </div>
             </div>
@@ -493,63 +547,130 @@
     }
 
     // 渲染历史记录
-    function renderHistory() {
-        const historyList = document.getElementById('history-list');
+    function renderHistory(modal) {
+        const historyList = modal.querySelector('#history-list');
         const history = getHistory();
+        const selectAllCheckbox = modal.querySelector('#select-all');
+        const deleteSelectedBtn = modal.querySelector('#delete-selected-btn');
         
         if (history.length === 0) {
-            historyList.innerHTML = '<p style="text-align: center; color: #666;">暂无历史记录</p>';
+            historyList.innerHTML = '<div class="ai-history-empty">暂无历史记录</div>';
+            deleteSelectedBtn.style.display = 'none';
             return;
         }
 
         historyList.innerHTML = history.map(item => `
-            <div class="ai-history-item">
-                <div class="ai-history-meta">${item.timestamp}</div>
-                <div class="ai-history-text ai-history-original" title="原始提示词">${item.original}</div>
-                <div class="ai-history-text ai-history-optimized" title="优化后提示词">${item.optimized}</div>
-                <div>
-                    <button class="ai-copy-btn" onclick="copyToClipboard(\`${item.original.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">复制原文</button>
-                    <button class="ai-copy-btn" onclick="copyToClipboard(\`${item.optimized.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">复制优化后</button>
+            <div class="ai-history-item" data-id="${item.id}">
+                <div style="display: flex; align-items: flex-start;">
+                    <input type="checkbox" class="ai-history-checkbox" data-id="${item.id}">
+                    <div style="flex: 1;">
+                        <div class="ai-history-meta">${item.timestamp}</div>
+                        <div class="ai-history-text ai-history-original" title="原始提示词">${item.original}</div>
+                        <div class="ai-history-text ai-history-optimized" title="优化后提示词">${item.optimized}</div>
+                        <div class="ai-history-actions">
+                            <button class="ai-copy-btn" onclick="copyToClipboard(\`${item.original.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">复制原文</button>
+                            <button class="ai-copy-btn" onclick="copyToClipboard(\`${item.optimized.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">复制优化后</button>
+                            <button class="ai-delete-btn" onclick="deleteHistoryItem(${item.id})">删除</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `).join('');
+
+        // 绑定历史记录事件
+        modal.querySelectorAll('.ai-history-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                updateSelectAllState(modal);
+                updateDeleteSelectedButton(modal);
+            });
+        });
+
+        // 全选/取消全选
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            modal.querySelectorAll('.ai-history-checkbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateDeleteSelectedButton(modal);
+        });
+
+        // 批量删除
+        deleteSelectedBtn.addEventListener('click', () => {
+            const selectedIds = Array.from(modal.querySelectorAll('.ai-history-checkbox:checked')).map(cb => parseInt(cb.dataset.id));
+            if (selectedIds.length === 0) return;
+            if (confirm(`确认删除 ${selectedIds.length} 条历史记录吗？`)) {
+                deleteSelectedHistory(selectedIds);
+                renderHistory(modal);
+                showToast('已删除选中的历史记录');
+            }
+        });
+
+        // 清空所有
+        modal.querySelector('#clear-all-btn').addEventListener('click', () => {
+            if (confirm('确认清空所有历史记录吗？')) {
+                GM_setValue('promptHistory', JSON.stringify([]));
+                renderHistory(modal);
+                showToast('已清空所有历史记录');
+            }
+        });
+
+        updateSelectAllState(modal);
+        updateDeleteSelectedButton(modal);
     }
 
-    // 查找Lucky按钮并插入AI按钮
+    // 更新全选状态
+    function updateSelectAllState(modal) {
+        const selectAllCheckbox = modal.querySelector('#select-all');
+        const checkboxes = modal.querySelectorAll('.ai-history-checkbox');
+        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+        const totalCount = checkboxes.length;
+
+        if (checkedCount === 0) {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = false;
+        } else if (checkedCount === totalCount) {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = true;
+        } else {
+            selectAllCheckbox.indeterminate = true;
+            selectAllCheckbox.checked = false;
+        }
+    }
+
+    // 更新批量删除按钮显示
+    function updateDeleteSelectedButton(modal) {
+        const deleteSelectedBtn = modal.querySelector('#delete-selected-btn');
+        const selectedCount = Array.from(modal.querySelectorAll('.ai-history-checkbox:checked')).length;
+        deleteSelectedBtn.style.display = selectedCount > 0 ? 'inline-block' : 'none';
+    }
+
+    // 查找指定容器并插入AI按钮
     function findAndInsertButtons() {
-        // 查找包含"I'm feeling lucky"文本的按钮
-        const luckyButton = document.querySelector('button .sc-a6441ec3-2');
+        // 查找指定的容器 .sc-a6441ec3-1.ilPcSz
+        const targetContainer = document.querySelector('.sc-a6441ec3-1.ilPcSz');
         
-        if (luckyButton && luckyButton.textContent.includes("I'm feeling lucky")) {
-            const buttonElement = luckyButton.closest('button');
-            const parentContainer = buttonElement.parentElement;
-            
-            // 检查是否已经添加过按钮
-            if (parentContainer.querySelector('.ai-button-container')) {
-                return true;
-            }
-            
-            console.log('找到Lucky按钮，准备插入AI按钮');
+        if (targetContainer && !targetContainer.querySelector('.ai-button-container')) {
+            console.log('找到指定容器，准备插入AI按钮');
             
             // 创建按钮容器
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'ai-button-container';
             
-            // 创建AI优化按钮和设置按钮
+            // 创建AI优化按钮
             const aiBtn = createOptimizerButton();
-            const settingsBtn = createSettingsButton();
-            
             buttonContainer.appendChild(aiBtn);
-            buttonContainer.appendChild(settingsBtn);
             
-            // 插入到Lucky按钮前面
-            parentContainer.insertBefore(buttonContainer, buttonElement);
+            // 插入到容器最前面（左对齐）
+            targetContainer.insertBefore(buttonContainer, targetContainer.firstChild);
             
             // 绑定事件
-            aiBtn.addEventListener('click', () => showOptimizerModal('optimize'));
-            settingsBtn.addEventListener('click', () => showOptimizerModal('settings'));
+            aiBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                showOptimizerModal('optimize');
+            });
             
-            console.log('AI优化按钮已成功添加');
+            console.log('AI优化按钮已成功添加到指定容器内左对齐');
             return true;
         }
         
@@ -584,15 +705,15 @@
         // 立即尝试一次
         setTimeout(() => {
             if (!findAndInsertButtons()) {
-                console.log('首次尝试未找到Lucky按钮，继续监听...');
+                console.log('首次尝试未找到指定容器，继续监听...');
             }
         }, 1000);
         
-        // 5秒后如果还没找到，停止观察
+        // 10秒后如果还没找到，停止观察
         setTimeout(() => {
             observer.disconnect();
             console.log('停止监听DOM变化');
-        }, 5000);
+        }, 10000);
     }
 
     // 显示优化弹窗
@@ -609,14 +730,15 @@
         document.getElementById('config-prompt').value = config.optimizePrompt;
 
         // 渲染历史记录
-        renderHistory();
+        renderHistory(modal);
 
         // 暴露复制函数到全局
         window.copyToClipboard = copyToClipboard;
+        window.deleteHistoryItem = deleteHistoryItem;
 
         // 切换到指定标签
         if (activeTab !== 'optimize') {
-            switchTab(activeTab);
+            switchTab(modal, activeTab);
         }
 
         // 绑定事件
@@ -624,9 +746,9 @@
     }
 
     // 切换标签
-    function switchTab(tabName) {
+    function switchTab(modal, tabName) {
         // 切换标签按钮状态
-        document.querySelectorAll('.ai-tab').forEach(tab => {
+        modal.querySelectorAll('.ai-tab').forEach(tab => {
             tab.classList.remove('active');
             if (tab.dataset.tab === tabName) {
                 tab.classList.add('active');
@@ -634,23 +756,28 @@
         });
 
         // 切换内容
-        document.querySelectorAll('.ai-tab-content').forEach(content => {
+        modal.querySelectorAll('.ai-tab-content').forEach(content => {
             content.classList.remove('active');
         });
-        document.getElementById(`${tabName}-tab`).classList.add('active');
+        modal.querySelector(`#${tabName}-tab`).classList.add('active');
+
+        // 如果切换到历史，重新渲染
+        if (tabName === 'history') {
+            renderHistory(modal);
+        }
     }
 
     // 绑定弹窗事件
     function bindModalEvents(modal) {
         const closeBtn = modal.querySelector('.ai-modal-close');
-        const optimizeBtn = document.getElementById('optimize-btn');
-        const copyOriginalBtn = document.getElementById('copy-original-btn');
-        const copyOptimizedBtn = document.getElementById('copy-optimized-btn');
-        const reOptimizeBtn = document.getElementById('re-optimize-btn');
-        const saveConfigBtn = document.getElementById('save-config-btn');
-        const inputText = document.getElementById('input-text');
-        const result = document.getElementById('result');
-        const loading = document.getElementById('loading');
+        const optimizeBtn = modal.querySelector('#optimize-btn');
+        const copyOriginalBtn = modal.querySelector('#copy-original-btn');
+        const copyOptimizedBtn = modal.querySelector('#copy-optimized-btn');
+        const reOptimizeBtn = modal.querySelector('#re-optimize-btn');
+        const saveConfigBtn = modal.querySelector('#save-config-btn');
+        const inputText = modal.querySelector('#input-text');
+        const result = modal.querySelector('#result');
+        const loading = modal.querySelector('#loading');
 
         let currentOriginal = '';
         let currentOptimized = '';
@@ -668,12 +795,9 @@
         });
 
         // 标签切换
-        document.querySelectorAll('.ai-tab').forEach(tab => {
+        modal.querySelectorAll('.ai-tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                switchTab(tab.dataset.tab);
-                if (tab.dataset.tab === 'history') {
-                    renderHistory();
-                }
+                switchTab(modal, tab.dataset.tab);
             });
         });
 
@@ -735,17 +859,15 @@
         // 保存配置
         saveConfigBtn.addEventListener('click', () => {
             const newConfig = {
-                baseUrl: document.getElementById('config-baseurl').value.trim(),
-                apiKey: document.getElementById('config-apikey').value.trim(),
-                modelId: document.getElementById('config-modelid').value.trim(),
-                optimizePrompt: document.getElementById('config-prompt').value.trim()
+                baseUrl: modal.querySelector('#config-baseurl').value.trim(),
+                apiKey: modal.querySelector('#config-apikey').value.trim(),
+                modelId: modal.querySelector('#config-modelid').value.trim(),
+                optimizePrompt: modal.querySelector('#config-prompt').value.trim()
             };
             
             saveConfig(newConfig);
             showToast('配置已保存');
         });
-
-        // 输入框默认为空，不自动填充任何内容
     }
 
     // 页面加载完成后初始化
